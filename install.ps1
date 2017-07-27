@@ -121,7 +121,7 @@ function Test-ProjectPackage {
   param ($Path, $Algorithm = 'SHA256', $Hash)
   if (!$env:Valid_ProjectPackage){
     Write-Verbose "Testing the $Algorithm hash for $path."
-    $ActualHash = if (Is-FIPS -or $(Get-PowershellVersion) -le 3) {
+    $ActualHash = if ($(Is-FIPS) -ge 1 -or $(Get-PowershellVersion) -le 3) {
       (Custom-GetFileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
     } else {
       (Get-FileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
@@ -151,7 +151,7 @@ function Custom-GetFileHash ($Path, $Algorithm) {
 }
 
 function Get-SHA256Converter {
-  if (Is-FIPS) {
+  if ($(Is-FIPS) -ge 1) {
     New-Object -TypeName Security.Cryptography.SHA256Cng
   } else {
     if($PSVersionTable.PSEdition -eq 'Core') {
