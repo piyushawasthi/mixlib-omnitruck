@@ -75,7 +75,7 @@ function Get-WebContentOnFullNet {
 
   $proxy = New-Object -TypeName System.Net.WebProxy
   $wc = new-object System.Net.WebClient
-  $wc.Headers.Add("user-agent", "mixlib-install/3.3.1")
+  $wc.Headers.Add("user-agent", "mixlib-install/3.3.2")
   $proxy.Address = $env:http_proxy
   $wc.Proxy = $proxy
 
@@ -92,7 +92,7 @@ function Get-WebContentOnCore {
 
   $handler = New-Object System.Net.Http.HttpClientHandler
   $client = New-Object System.Net.Http.HttpClient($handler)
-  $client.DefaultRequestHeaders.UserAgent.ParseAdd("mixlib-install/3.3.1")
+  $client.DefaultRequestHeaders.UserAgent.ParseAdd("mixlib-install/3.3.2")
   $client.Timeout = New-Object System.TimeSpan(0, 30, 0)
   $cancelTokenSource = [System.Threading.CancellationTokenSource]::new()
   $responseMsg = $client.GetAsync([System.Uri]::new($uri), $cancelTokenSource.Token)
@@ -121,7 +121,7 @@ function Test-ProjectPackage {
   param ($Path, $Algorithm = 'SHA256', $Hash)
   if (!$env:Valid_ProjectPackage){
     Write-Verbose "Testing the $Algorithm hash for $path."
-    $ActualHash = if (Is-FIPS) {
+    $ActualHash = if (Is-FIPS -or $(Get-PowershellVersion) -le 3) {
       (Custom-GetFileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
     } else {
       (Get-FileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
@@ -150,7 +150,6 @@ function Custom-GetFileHash ($Path, $Algorithm) {
   return $hash
 }
 
-
 function Get-SHA256Converter {
   if (Is-FIPS) {
     New-Object -TypeName Security.Cryptography.SHA256Cng
@@ -169,6 +168,10 @@ function Is-FIPS {
     $env:fips = (Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy).Enabled
   }
   return $env:fips
+}
+
+function Get-PowershellVersion {
+  $PSVersionTable.PSVersion.Major
 }
 
 function Get-WMIQuery {
@@ -320,12 +323,12 @@ function Install-Project {
     # SHA256 checksum of the download file
     # Must be present when using download_url_override
   )
-  
-  $stopwatch =  [system.diagnostics.stopwatch]::startNew()
 
   # Set http_proxy as env var
-  $env:http_proxy = $http_proxy
-
+  if(-not [string]::IsNullOrEmpty($http_proxy)) {
+    $env:http_proxy = $http_proxy
+  }
+  
   if (-not [string]::IsNullOrEmpty($download_url_override)) {
     $download_url = $download_url_override
     $sha256 = $checksum
@@ -387,20 +390,12 @@ function Install-Project {
       throw "Failed to validate the downloaded installer for $project."
     }
   }
-  $stopwatch.IsRunning
-  $stopwatch.stop()
-  $min = $stopwatch.Elapsed.Minutes
-  $sec = $stopwatch.Elapsed.Seconds
-  $millsec = $stopwatch.Elapsed.Milliseconds
-  Write-Verbose "Total Minutes -> $min"
-  Write-Verbose "Total Second -> $sec"
-  Write-Verbose "Total MilliSecond -> $millsec"
 }
 set-alias install -value Install-Project
 
 Function Install-ChefMsi($msi, $addlocal) {
   if ($addlocal -eq "service") {
-    $p = Start-Process -FilePath "msiexec.exe" -ArgumentList "/qn /i $msi ADDLOCAL=`"ChefClientFeature,ChefServiceFeature`"" -Passthru -Wait -NoNewWindow 
+    $p = Start-Process -FilePath "msiexec.exe" -ArgumentList "/qn /i $msi ADDLOCAL=`"ChefClientFeature,ChefServiceFeature`"" -Passthru -Wait -NoNewWindow
   }
   ElseIf ($addlocal -eq "task") {
     $p = Start-Process -FilePath "msiexec.exe" -ArgumentList "/qn /i $msi ADDLOCAL=`"ChefClientFeature,ChefSchTaskFeature`"" -Passthru -Wait -NoNewWindow
@@ -408,6 +403,7 @@ Function Install-ChefMsi($msi, $addlocal) {
   ElseIf ($addlocal -eq "auto") {
     $p = Start-Process -FilePath "msiexec.exe" -ArgumentList "/qn /i $msi" -Passthru -Wait -NoNewWindow
   }
+
   $p.WaitForExit()
   if ($p.ExitCode -eq 1618) {
     Write-Host "Another msi install is in progress (exit code 1618), retrying ($($installAttempts))..."
