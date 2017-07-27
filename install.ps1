@@ -121,11 +121,7 @@ function Test-ProjectPackage {
   param ($Path, $Algorithm = 'SHA256', $Hash)
   if (!$env:Valid_ProjectPackage){
     Write-Verbose "Testing the $Algorithm hash for $path."
-    $ActualHash = if ($(Is-FIPS) -ge 1 -or $(Get-PowershellVersion) -le 3) {
-      (Custom-GetFileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
-    } else {
-      (Get-FileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
-    }
+    $ActualHash = (Custom-GetFileHash -Algorithm $Algorithm -Path $Path).Hash.ToLower()
 
     Write-Verbose "`tDesired Hash - '$Hash'"
     Write-Verbose "`tActual Hash  - '$ActualHash'"
@@ -406,7 +402,7 @@ Function Install-ChefMsi($msi, $addlocal) {
 
   $p.WaitForExit()
   if ($p.ExitCode -eq 1618) {
-    Write-Host "Another msi install is in progress (exit code 1618), retrying ($($installAttempts))..."
+    Write-Host "$((Get-Date).ToString()) - Another msi install is in progress (exit code 1618), retrying ($($installAttempts))..."
     return $false
   } elseif ($p.ExitCode -ne 0) {
     throw "msiexec was not successful. Received exit code $($p.ExitCode)"
