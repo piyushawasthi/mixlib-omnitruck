@@ -147,23 +147,12 @@ function Custom-GetFileHash ($Path, $Algorithm) {
 }
 
 function Get-SHA256Converter {
-  if ($(Is-FIPS) -ge 1) {
-    New-Object -TypeName Security.Cryptography.SHA256Cng
-  } else {
-    if($PSVersionTable.PSEdition -eq 'Core') {
+   if($PSVersionTable.PSEdition -eq 'Core') {
       [System.Security.Cryptography.SHA256]::Create()
     }
     else {
-      New-Object -TypeName Security.Cryptography.SHA256Managed
+      New-Object -TypeName Security.Cryptography.SHA256Cng
     }
-  }
-}
-
-function Is-FIPS {
-  if (!$env:fips){
-    $env:fips = (Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy).Enabled
-  }
-  return $env:fips
 }
 
 function Get-PowershellVersion {
